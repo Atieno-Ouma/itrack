@@ -1,0 +1,33 @@
+.icon-home{
+background: url(/icons/home.png) no-repeat;
+}
+.icon-start{
+background: url(/icons/start.png);
+}
+.icon-me{
+background: url(icons/me.png);
+}
+.icon-follow-up{
+background: url(icons/follow-up.png);
+}
+.icon-people{
+background: url(icons/people.png);
+}
+.iconfacilities{
+background: url(icons/home.png) no-repeat;
+}
+.icon-reports{
+background: url(icons/home.png);
+}
+.icon-inventory{
+background: url(icons/inventory.png);
+}
+.icon-transport{
+background: url(icons/transport.png);
+}
+.icon-utility{
+background: url(icons/utility.png);
+}
+.icon-settings{
+background: url(icons/settings.png);
+}
