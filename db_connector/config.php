@@ -1,1 +1,0 @@
-<?php $config["database"] = "ihris_track_sys"; $config["host"]= "localhost";$config["username"]= "root"; $config["password"]= "";?>

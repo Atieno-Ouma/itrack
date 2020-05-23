@@ -21,20 +21,9 @@ error_reporting(0);
 
     /** Connect to a MySQL database to be able to use the methods below.
       */
-    function DB($base, $server, $user, $pass)
+    function DB($server, $user, $pass,$base,$port)
     {
-      $this->mtStart    = $this->getMicroTime();
-      $this->nbQueries  = 0;
-      $this->lastResult = NULL;
-     $myconnection = mysql_connect($server, $user, $pass);
-     $myconnection =  mysql_select_db($base)              ;
-      
-      if ($myconnection==FALSE) {
-          $data='Database Connection is Not valid Please Enter The valid database connection';
-   header("location:install.php?msg=$data");
-    exit;
-       
-}
+     $connection = new mysqli($server,$user,$pass,$port);
     }
 
     /** Query the database.
@@ -45,7 +34,7 @@ error_reporting(0);
     function query($query, $debug = -1)
     {
       $this->nbQueries++;
-      $this->lastResult = mysql_query($query) or $this->debugAndDie($query);
+      $this->lastResult = $this->db->$query or $this->debugAndDie($query);
 
       $this->debug($debug, $query, $this->lastResult);
 
@@ -59,7 +48,7 @@ error_reporting(0);
     function execute($query, $debug = -1)
     {
       $this->nbQueries++;
-      mysql_query($query) or $this->debugAndDie($query);
+      $this->db->$query or $this->debugAndDie($query);
 
       $this->debug($debug, $query);
     }
@@ -75,7 +64,7 @@ error_reporting(0);
       if ($result == NULL || mysql_num_rows($result) < 1)
         return NULL;
       else
-        return mysql_fetch_object($result);
+        return $this->db->fetch_object->$result;
     }
     /** Get the number of rows of a query.
       * @param $result The ressource returned by query(). If NULL, the last result returned by query() will be used.
