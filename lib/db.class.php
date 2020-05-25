@@ -1,285 +1,224 @@
 <?php
-error_reporting(0);
-  /** A PHP class to access MySQL database with convenient methods
-    * in an object oriented way, and with a powerful debug system.\n
-    * Licence:  LGPL \n */
-  class DB
-  {
-    /** Put this variable to true if you want ALL queries to be debugged by default:
-      */
-    var $defaultDebug = false;
+require_once(__DIR__.'/database/DbConn.php');
+class AndreModel extends DbConn{
+	
+	public function __construct()
+    {
+		$dbcon = new DbConn();
+		 $this->connection= $dbcon->dbconnection();
+		$mysqli=$this->connection;
+	}
+	public function environment(){
+		//use debug or prod to turn on or off the queries
+		$environment='prod';
+	return $environment;
+	}
+	//use for delete, update, insert sql raw queries that dont return result
+	//example: $this->rawquery('Delete from users where uuid=1");
+	function rawquery($sql){
+		$sql=$this->appendSemicolon($sql);
+		$result = $this->connection->query($sql);
+		if($this->environment()=='debug'){
+		echo $sql;
+		}
+		if($result)
+		return 'SUCCESS';
+		else
+		return 'Failed SQL ERROR';
+	}
+	//Example: $this->insert('users',$this->inputpost());
+	function insert($tableName,$insertWhat){
+		$sql='INSERT INTO '.$tableName.'(';
+		foreach ($insertWhat as $key => $value)
+		$sql .= $key.',';
+		$sql=rtrim($sql,',');
+		$sql.=')';
+		$sql.=' VALUES(';
+		foreach ($insertWhat as $key => $value)
+		$sql .= '\''.$value.'\',';
+		$sql=rtrim($sql,',');
+		$sql.=')';
+		$sql=$this->appendSemicolon($sql);
+		if($this->environment()=='debug'){
+		echo $sql;
+		}
+		$result = $this->connection->query($sql);
+		if($result)
+			return $result;
+		else
+		return 'Failed SQL ERROR';
+	}
+	//you can get the array to update from the form using $this->inputpost();, with this you have to only declare the array for conditions.
+	//sample: $this->update('employee_details',array('Surname'=>'Andrew','Firstname=>'Agaba'), array('emp_id'=>'1'));
+    function update($tableName,$whatToSet,$whereArgs){
+    	$sql='UPDATE '.$tableName .' SET ';
+    	foreach ($whatToSet as $key => $value)
+    	$sql .= $key .'=\'' . $value . '\',';
+    	$sql=rtrim($sql,',');
+	   if($whereArgs)
+		$sql= $this->where($sql,$whereArgs);	
+		$sql=$this->appendSemicolon($sql);
+		if($this->environment()=='debug'){
+		echo $sql;
+		}
+	    $result = $this->connection->query($sql);
+		if($result)
+			return $result;
+		else
+		return 'Failed SQL ERROR';
+	}
+	//example: $this->delete('users',array('id'=>'1','flag'=>'0'));
+   function delete($tableName,$whereArgs){
+   	    $sql='DELETE FROM '.$tableName;
+	   if($whereArgs)
+	   	$sql=$this->where($sql,$whereArgs);
+		$sql=$this->appendSemicolon($sql);
+		if($this->environment()=='debug'){
+		echo $sql;
+		}
+	  	$result = $this->connection->query($sql);
+		if($result)
+		return $result;
+		else
+		return 'Failed SQL ERROR';
+   }
+    function where($sql,$whereArgs){
+    	$sql.=' WHERE ';
+    	foreach ($whereArgs as $key => $value)
+    		$sql.=$key.' = \''.$value.'\' AND ';
+    	$sql=rtrim($sql,'AND ');  	
+    	return $sql;
+    }
+	function appendSemicolon($sql){
+		if(substr($sql,-1)!=';')
+			return $sql.' ;';	
+	}
+	//this returns data from in either and array or object format from a raw query
+	//example: $result=$this->get("array","SELECT * FROM users");
+	function get($type,$query){
+		$sql=$this->appendSemicolon($query);
+		if($this->environment()=='debug'){
+		echo $sql;
+		}
+		$array=array();
+		$result = $this->connection->query($sql);
+		if($result){
+		if ($type=="object"){
+		while($row=mysqli_fetch_object($result))
+		array_push($array,$row);
+		return $array;
+		}
+		elseif ($type=="array"){
+			while($row=mysqli_fetch_assoc($result))
+			array_push($array,$row);
+		return $array;  
+		}
+		else
+		return 'Failed SQL ERROR'; 
+		}
+		}
+         //Get the rows affted after running a query
+		//Usage: $affectedrows = $this->affected_rows();
+	function affected_rows(){
+		$data=$this->connection->affected_rows;
+		if($this->environment()=='debug'){
+			echo $data;
+		}
+		return $data;
+	}
+		// counts number of rows in  a result set from a run query.
+		//$this->num_rows($sqlresult)
+	function num_rows($sqlresult){
+			$results=$this->connection->query($sqlresult);
+			$data=$results->num_rows;
+			if($this->environment()=='debug'){
+				echo $data;
+			}
+			return $data;
+	}
+		//close a db connection;
+	public function dbclose()
+		{
+		return	$this->connection->close();
+		
+	}
+	public function helpers(){
 
-    /** INTERNAL: The start time, in miliseconds.
-      */
-    var $mtStart;
-    /** INTERNAL: The number of executed queries.
-      */
-    var $nbQueries;
-    /** INTERNAL: The last result ressource of a query().
-      */
-    var $lastResult;
+	return	require_once(__DIR__.'/../config/helpers.php');
 
-    /** Connect to a MySQL database to be able to use the methods below.
-      */
-    function DB($server, $user, $pass,$base,$port)
-    {
-     $connection = new mysqli($server,$user,$pass,$port);
+	}
+	
+	//this process form postinputs
+		//instead of running $_POST['name]; you can run $this->inputpost('name);
+  function inputpost($fieldname=FALSE){
+			$sqlines=array('SELECT','select','Select','UPDATE','Update','update','DELETE',
+			'Delete','delete','*','union','UNION','WHERE','where','AS','as','As','aS','#',
+			'?','%','%%','??','$$','$','+','(',')','!','^','=');
+			if($fieldname){
+			// remove sql key statements
+			$result=($_POST[$fieldname]);
+			$fresult=str_replace($sqlines,'',$result);
+			}
+			else{
+			$result=($_POST);
+			$fresult=str_replace($sqlines,'',$result);
+			}
+			if($this->environment()=='debug'){
+				echo $fresult;
+			}
+		return $fresult;
+		}
+		//works like above but use it for data sources you are sure of
+ function inputpost_clean($fieldname=FALSE){
+			if($fieldname){
+			// remove sql key statements
+			$result=($_POST[$fieldname]);
+			$fresult=$result;
+			}
+			else{
+			$result=($_POST);
+			$fresult=$result;
+			}
+			if($this->environment()=='debug'){
+				echo $fresult;
+		   }
+		return $fresult;
+	}
+        //helps in navigation
+        //usage: call the function and the name path to the file
+        // include(systempath().application/views/home.php
+    function system_path(){
+            $variable = $_SERVER['DOCUMENT_ROOT'];
+            $variable .= $_SERVER['PHP_SELF'];
+            $npath = substr($variable, 0, strpos($variable, "index.php"));
+            return $npath;
+        }
+        // run only in models or controllers
+        //you can access using the name within the class loading e.g $this->Attendance if the 
+        //load like $this->load_controller('Attendance');
+    function load_controller($name){
+        $variable = $_SERVER['DOCUMENT_ROOT'];
+        $variable .= $_SERVER['PHP_SELF'];
+        $npath = substr($variable, 0, strpos($variable, "index.php"));
+        if(!empty($name)){
+            foreach ($name as $controller) {
+                include($npath.'application/controller/'.$controller.'.php'); $controller = new $controller;
+            }
+           
+        }
     }
-
-    /** Query the database.
-      * @param $query The query.
-      * @param $debug If true, it output the query and the resulting table.
-      * @return The result of the query, to use with fetchNextObject().
-      */
-    function query($query, $debug = -1)
-    {
-      $this->nbQueries++;
-      $this->lastResult = $this->db->$query or $this->debugAndDie($query);
-
-      $this->debug($debug, $query, $this->lastResult);
-
-      return $this->lastResult;
+    // run only in models or controllers
+    function load_model($name=NULL){
+        $variable = $_SERVER['DOCUMENT_ROOT'];
+        $variable .= $_SERVER['PHP_SELF'];
+        $npath = substr($variable, 0, strpos($variable, "index.php"));
+        if(!empty($name)){
+            foreach ($name as $controller) {
+                include($npath.'application/model/'.$model.'.php'); $model = new $model;
+            }
+           
+        }
     }
-    /** Do the same as query() but do not return nor store result.\n
-      * Should be used for INSERT, UPDATE, DELETE...
-      * @param $query The query.
-      * @param $debug If true, it output the query and the resulting table.
-      */
-    function execute($query, $debug = -1)
-    {
-      $this->nbQueries++;
-      $this->db->$query or $this->debugAndDie($query);
-
-      $this->debug($debug, $query);
-    }
-    /** Convenient method for mysql_fetch_object().
-      * @param $result The ressource returned by query(). If NULL, the last result returned by query() will be used.
-      * @return An object representing a data row.
-      */
-    function fetchNextObject($result = NULL)
-    {
-      if ($result == NULL)
-        $result = $this->lastResult;
-
-      if ($result == NULL || mysql_num_rows($result) < 1)
-        return NULL;
-      else
-        return $this->db->fetch_object->$result;
-    }
-    /** Get the number of rows of a query.
-      * @param $result The ressource returned by query(). If NULL, the last result returned by query() will be used.
-      * @return The number of rows of the query (0 or more).
-      */
-    function numRows($result = NULL)
-    {
-      if ($result == NULL)
-        return mysql_num_rows($this->lastResult);
-      else
-        return mysql_num_rows($result);
-    }
-    /** Get the result of the query as an object. The query should return a unique row.\n
-      * Note: no need to add "LIMIT 1" at the end of your query because
-      * the method will add that (for optimisation purpose).
-      * @param $query The query.
-      * @param $debug If true, it output the query and the resulting row.
-      * @return An object representing a data row (or NULL if result is empty).
-      */
-    function queryUniqueObject($query, $debug = -1)
-    {
-      $query = "$query LIMIT 1";
-
-      $this->nbQueries++;
-      $result = mysql_query($query) or $this->debugAndDie($query);
-
-      $this->debug($debug, $query, $result);
-
-      return mysql_fetch_object($result);
-    }
-    /** Get the result of the query as value. The query should return a unique cell.\n
-      * Note: no need to add "LIMIT 1" at the end of your query because
-      * the method will add that (for optimisation purpose).
-      * @param $query The query.
-      * @param $debug If true, it output the query and the resulting value.
-      * @return A value representing a data cell (or NULL if result is empty).
-      */
-    function queryUniqueValue($query, $debug = -1)
-    {
-      $query = "$query LIMIT 1";
-
-      $this->nbQueries++;
-      $result = mysql_query($query) or $this->debugAndDie($query);
-      $line = mysql_fetch_row($result);
-
-      $this->debug($debug, $query, $result);
-
-      return $line[0];
-    }
-    /** Get the maximum value of a column in a table, with a condition.
-      * @param $column The column where to compute the maximum.
-      * @param $table The table where to compute the maximum.
-      * @param $where The condition before to compute the maximum.
-      * @return The maximum value (or NULL if result is empty).
-      */
-    function maxOf($column, $table, $where)
-    {
-      return $this->queryUniqueValue("SELECT MAX(`$column`) FROM `$table` WHERE $where");
-    }
-    /** Get the maximum value of a column in a table.
-      * @param $column The column where to compute the maximum.
-      * @param $table The table where to compute the maximum.
-      * @return The maximum value (or NULL if result is empty).
-      */
-    function maxOfAll($column, $table)
-    {
-      return $this->queryUniqueValue("SELECT MAX(`$column`) FROM `$table`");
-    }
-    /** Get the count of rows in a table, with a condition.
-      * @param $table The table where to compute the number of rows.
-      * @param $where The condition before to compute the number or rows.
-      * @return The number of rows (0 or more).
-      */
-    function countOf($table, $where)
-    {
-      return $this->queryUniqueValue("SELECT COUNT(*) FROM `$table` WHERE $where");
-    }
-    /** Get the count of rows in a table.
-      * @param $table The table where to compute the number of rows.
-      * @return The number of rows (0 or more).
-      */
-    function countOfAll($table)
-    {
-      return $this->queryUniqueValue("SELECT COUNT(*) FROM `$table`");
-    }
-    /** Internal function to debug when MySQL encountered an error,
-      * even if debug is set to Off.
-      * @param $query The SQL query to echo before diying.
-      */
-    function debugAndDie($query)
-    {
-      $this->debugQuery($query, "Error");
-      die("<p style=\"margin: 2px;\">".mysql_error()."</p></div>");
-    }
-    /** Internal function to debug a MySQL query.\n
-      * Show the query and output the resulting table if not NULL.
-      * @param $debug The parameter passed to query() functions. Can be boolean or -1 (default).
-      * @param $query The SQL query to debug.
-      * @param $result The resulting table of the query, if available.
-      */
-    function debug($debug, $query, $result = NULL)
-    {
-      if ($debug === -1 && $this->defaultDebug === false)
-        return;
-      if ($debug === false)
-        return;
-
-      $reason = ($debug === -1 ? "Default Debug" : "Debug");
-      $this->debugQuery($query, $reason);
-      if ($result == NULL)
-        echo "<p style=\"margin: 2px;\">Number of affected rows: ".mysql_affected_rows()."</p></div>";
-      else
-        $this->debugResult($result);
-    }
-    /** Internal function to output a query for debug purpose.\n
-      * Should be followed by a call to debugResult() or an echo of "</div>".
-      * @param $query The SQL query to debug.
-      * @param $reason The reason why this function is called: "Default Debug", "Debug" or "Error".
-      */
-    function debugQuery($query, $reason = "Debug")
-    {
-      $color = ($reason == "Error" ? "red" : "orange");
-      echo "<div style=\"border: solid $color 1px; margin: 2px;\">".
-           "<p style=\"margin: 0 0 2px 0; padding: 0; background-color: #DDF;\">".
-           "<strong style=\"padding: 0 3px; background-color: $color; color: white;\">$reason:</strong> ".
-           "<span style=\"font-family: monospace;\">".htmlentities($query)."</span></p>";
-    }
-    /** Internal function to output a table representing the result of a query, for debug purpose.\n
-      * Should be preceded by a call to debugQuery().
-      * @param $result The resulting table of the query.
-      */
-    function debugResult($result)
-    {
-      echo "<table border=\"1\" style=\"margin: 2px;\">".
-           "<thead style=\"font-size: 80%\">";
-      $numFields = mysql_num_fields($result);
-      // BEGIN HEADER
-      $tables    = array();
-      $nbTables  = -1;
-      $lastTable = "";
-      $fields    = array();
-      $nbFields  = -1;
-      while ($column = mysql_fetch_field($result)) {
-        if ($column->table != $lastTable) {
-          $nbTables++;
-          $tables[$nbTables] = array("name" => $column->table, "count" => 1);
-        } else
-          $tables[$nbTables]["count"]++;
-        $lastTable = $column->table;
-        $nbFields++;
-        $fields[$nbFields] = $column->name;
-      }
-      for ($i = 0; $i <= $nbTables; $i++)
-        echo "<th colspan=".$tables[$i]["count"].">".$tables[$i]["name"]."</th>";
-      echo "</thead>";
-      echo "<thead style=\"font-size: 80%\">";
-      for ($i = 0; $i <= $nbFields; $i++)
-        echo "<th>".$fields[$i]."</th>";
-      echo "</thead>";
-      // END HEADER
-      while ($row = mysql_fetch_array($result)) {
-        echo "<tr>";
-        for ($i = 0; $i < $numFields; $i++)
-          echo "<td>".htmlentities($row[$i])."</td>";
-        echo "</tr>";
-      }
-      echo "</table></div>";
-      $this->resetFetch($result);
-    }
-    /** Get how many time the script took from the begin of this object.
-      * @return The script execution time in seconds since the
-      * creation of this object.
-      */
-    function getExecTime()
-    {
-      return round(($this->getMicroTime() - $this->mtStart) * 1000) / 1000;
-    }
-    /** Get the number of queries executed from the begin of this object.
-      * @return The number of queries executed on the database server since the
-      * creation of this object.
-      */
-    function getQueriesCount()
-    {
-      return $this->nbQueries;
-    }
-    /** Go back to the first element of the result line.
-      * @param $result The resssource returned by a query() function.
-      */
-    function resetFetch($result)
-    {
-      if (mysql_num_rows($result) > 0)
-        mysql_data_seek($result, 0);
-    }
-    /** Get the id of the very last inserted row.
-      * @return The id of the very last inserted row (in any table).
-      */
-    function lastInsertedId()
-    {
-      return mysql_insert_id();
-    }
-    /** Close the connexion with the database server.\n
-      * It's usually unneeded since PHP do it automatically at script end.
-      */
-    function close()
-    {
-      mysql_close();
-    }
-
-    /** Internal method to get the current time.
-      * @return The current time in seconds with microseconds (in float format).
-      */
-    function getMicroTime()
-    {
-      list($msec, $sec) = explode(' ', microtime());
-      return floor($sec / 1000) + $msec;
-    }
-  } // class DB
-?>
+}
+		
+		?>
